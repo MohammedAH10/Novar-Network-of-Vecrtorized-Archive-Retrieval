@@ -1,0 +1,93 @@
+.message {
+    display: flex;
+    gap: 16px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border-dim);
+    animation: slideIn 180ms ease;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.label {
+    font-size: 9px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    padding-top: 2px;
+    flex-shrink: 0;
+    width: 24px;
+    text-align: right;
+}
+
+.user .label {
+    color: var(--amber);
+}
+.assistant .label {
+    color: var(--text-faint);
+}
+.error .label {
+    color: var(--red);
+}
+
+.body {
+    flex: 1;
+    min-width: 0;
+}
+
+.content {
+    color: var(--text);
+    line-height: 1.7;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.user .content {
+    color: var(--amber);
+}
+.error .content {
+    color: var(--red);
+}
+
+.sources {
+    margin-top: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.source {
+    font-size: 10px;
+    color: var(--text-faint);
+    border: 1px solid var(--border-dim);
+    padding: 1px 6px;
+    letter-spacing: 0.04em;
+}
+
+/* Streaming cursor */
+.cursor {
+    display: inline-block;
+    width: 7px;
+    height: 13px;
+    background: var(--amber-dim);
+    margin-left: 2px;
+    vertical-align: text-bottom;
+    animation: blink-cursor 0.9s step-end infinite;
+}
+
+@keyframes blink-cursor {
+    0%,
+    100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0;
+    }
+}
