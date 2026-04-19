@@ -1,4 +1,4 @@
-# NotebookLM Lite — Backend
+# Novar: Network of Vectorized Archive Retrieval — Backend
 
 A minimal document Q&A backend powered by FastAPI, LangChain, ChromaDB (in-memory), and the Gemini API.
 
@@ -13,7 +13,7 @@ A minimal document Q&A backend powered by FastAPI, LangChain, ChromaDB (in-memor
 ## Project Structure
 
 ```
-notebooklm/
+novar/
 ├── app/
 │   ├── main.py                 # FastAPI app, CORS, router registration
 │   ├── models/
