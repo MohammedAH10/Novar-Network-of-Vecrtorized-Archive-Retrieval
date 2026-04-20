@@ -6,7 +6,7 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     gemini_api_key: str
     gemini_model: str = "gemini-2.5-flash"
-    gemini_embedding_model: str = "models/text-embedding-004"
+    gemini_embedding_model: str = "gemini-embedding-001"
 
     # Chunking
     chunk_size: int = 1000
