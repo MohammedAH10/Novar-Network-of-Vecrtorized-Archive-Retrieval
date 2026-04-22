@@ -5,7 +5,7 @@ pydantic==2.9.2
 pydantic-settings==2.5.2
 
 # Embeddings models
-sentece-transformers
+sentence-transformers
 
 # LangChain core
 langchain==0.3.7
