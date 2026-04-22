@@ -4,6 +4,8 @@ from pathlib import Path
 
 from langchain_core.documents import Document
 
+from app.utils.errors import DocumentProcessingError, DocumentValidationError
+
 logger = logging.getLogger(__name__)
 
 SUPPORTED_EXTENSIONS = {".pdf", ".epub", ".txt", ".docx"}
@@ -17,18 +19,24 @@ def parse_document(filename: str, content: bytes) -> list[Document]:
     ext = Path(filename).suffix.lower()
 
     if ext not in SUPPORTED_EXTENSIONS:
-        raise ValueError(
+        raise DocumentValidationError(
             f"Unsupported file type '{ext}'. Supported: {', '.join(SUPPORTED_EXTENSIONS)}"
         )
 
-    if ext == ".pdf":
-        return _parse_pdf(filename, content)
-    elif ext == ".epub":
-        return _parse_epub(filename, content)
-    elif ext == ".txt":
-        return _parse_txt(filename, content)
-    elif ext == ".docx":
-        return _parse_docx(filename, content)
+    try:
+        if ext == ".pdf":
+            return _parse_pdf(filename, content)
+        elif ext == ".epub":
+            return _parse_epub(filename, content)
+        elif ext == ".txt":
+            return _parse_txt(filename, content)
+        elif ext == ".docx":
+            return _parse_docx(filename, content)
+    except DocumentValidationError:
+        raise
+    except Exception:
+        logger.exception("Failed to parse document '%s'", filename)
+        raise DocumentProcessingError()
 
 
 # ------------------------------------------------------------------ #
@@ -60,7 +68,7 @@ def _parse_epub(filename: str, content: bytes) -> list[Document]:
     from bs4 import BeautifulSoup
     from ebooklib import epub
 
-    book = epub.read_epub(io.BytesIO(content))
+    book = epub.read_epub(content)
     docs = []
     chapter_num = 0
 

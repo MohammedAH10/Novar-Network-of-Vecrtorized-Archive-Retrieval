@@ -15,6 +15,12 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from app.models.schemas import ChatResponse, UploadResponse
 from app.services.session_store import SessionData, session_store
 from app.utils.config import Settings
+from app.utils.errors import (
+    DocumentValidationError,
+    ResponseGenerationError,
+    RetrievalError,
+    SessionNotFoundError,
+)
 from app.utils.parser import parse_document
 
 logger = logging.getLogger(__name__)
@@ -98,7 +104,9 @@ async def ingest_document(
 ) -> UploadResponse:
     raw_docs = parse_document(filename, content)
     if not raw_docs:
-        raise ValueError(f"No extractable text found in '{filename}'.")
+        raise DocumentValidationError(
+            f"No extractable text found in '{filename}'."
+        )
 
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=settings.chunk_size,
@@ -159,7 +167,7 @@ async def chat(
 ) -> ChatResponse:
     session = session_store.get(session_id)
     if not session:
-        raise ValueError(f"Session '{session_id}' not found.")
+        raise SessionNotFoundError(session_id)
 
     llm = _build_llm(settings)
     retriever = session.vectorstore.as_retriever(
@@ -175,18 +183,26 @@ async def chat(
     else:
         standalone_question = user_message
 
-    relevant_docs = await retriever.ainvoke(standalone_question)
+    try:
+        relevant_docs = await retriever.ainvoke(standalone_question)
+    except Exception:
+        logger.exception("Retrieval failed for session '%s'", session_id)
+        raise RetrievalError()
     context = _format_docs(relevant_docs)
     sources = _extract_source_names(relevant_docs)
 
     answer_chain = ANSWER_PROMPT | llm | StrOutputParser()
-    answer = await answer_chain.ainvoke(
-        {
-            "context": context,
-            "chat_history": session.chat_history,
-            "question": user_message,
-        }
-    )
+    try:
+        answer = await answer_chain.ainvoke(
+            {
+                "context": context,
+                "chat_history": session.chat_history,
+                "question": user_message,
+            }
+        )
+    except Exception:
+        logger.exception("Response generation failed for session '%s'", session_id)
+        raise ResponseGenerationError()
 
     session.chat_history.extend(
         [HumanMessage(content=user_message), AIMessage(content=answer)]
@@ -207,7 +223,7 @@ async def chat_stream(
 ):
     session = session_store.get(session_id)
     if not session:
-        yield _sse("error", f"Session '{session_id}' not found.")
+        yield _sse("error", SessionNotFoundError(session_id).message)
         return
 
     try:
@@ -225,7 +241,11 @@ async def chat_stream(
         else:
             standalone_question = user_message
 
-        relevant_docs = await retriever.ainvoke(standalone_question)
+        try:
+            relevant_docs = await retriever.ainvoke(standalone_question)
+        except Exception:
+            logger.exception("Retrieval failed for session '%s'", session_id)
+            raise RetrievalError()
         context = _format_docs(relevant_docs)
         sources = _extract_source_names(relevant_docs)
 
@@ -234,16 +254,20 @@ async def chat_stream(
         answer_chain = ANSWER_PROMPT | llm | StrOutputParser()
         full_answer = ""
 
-        async for chunk in answer_chain.astream(
-            {
-                "context": context,
-                "chat_history": session.chat_history,
-                "question": user_message,
-            }
-        ):
-            if chunk:
-                full_answer += chunk
-                yield _sse("delta", chunk.replace("\n", "\\n"))
+        try:
+            async for chunk in answer_chain.astream(
+                {
+                    "context": context,
+                    "chat_history": session.chat_history,
+                    "question": user_message,
+                }
+            ):
+                if chunk:
+                    full_answer += chunk
+                    yield _sse("delta", chunk.replace("\n", "\\n"))
+        except Exception:
+            logger.exception("Response generation failed for session '%s'", session_id)
+            raise ResponseGenerationError()
 
         session.chat_history.extend(
             [HumanMessage(content=user_message), AIMessage(content=full_answer)]
@@ -251,6 +275,8 @@ async def chat_stream(
 
         yield _sse("done", "{}")
 
-    except Exception as exc:
+    except (SessionNotFoundError, RetrievalError, ResponseGenerationError) as exc:
+        yield _sse("error", exc.message)
+    except Exception:
         logger.exception("Streaming chat failed for session '%s'", session_id)
-        yield _sse("error", str(exc))
+        yield _sse("error", "Something went wrong while processing your request.")
