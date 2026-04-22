@@ -3,6 +3,7 @@ from typing import Annotated, Optional
 
 from app.models.schemas import UploadResponse
 from app.utils.config import Settings, get_settings
+from app.utils.errors import UserFacingError
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 
 from app.services.rag_service import ingest_document
@@ -66,15 +67,16 @@ async def upload_document(
             settings=settings,
             session_id=session_id,
         )
-    except ValueError as exc:
+    except UserFacingError as exc:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+            status_code=exc.status_code,
+            detail=exc.message,
         )
-    except Exception as exc:
+    except Exception:
         logger.exception("Failed to ingest document '%s'", file.filename)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to process document: {exc}",
+            detail="Something went wrong while processing your document.",
         )
 
     return result

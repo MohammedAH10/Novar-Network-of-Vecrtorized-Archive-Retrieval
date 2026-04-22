@@ -6,6 +6,7 @@ from fastapi.responses import StreamingResponse
 from app.models.schemas import ChatRequest, ChatResponse
 from app.services.rag_service import chat, chat_stream
 from app.utils.config import Settings, get_settings
+from app.utils.errors import SessionNotFoundError, UserFacingError
 
 logger = logging.getLogger(__name__)
 
@@ -23,13 +24,13 @@ async def chat_endpoint(
             user_message=body.message,
             settings=settings,
         )
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
-    except Exception as exc:
+    except UserFacingError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message)
+    except Exception:
         logger.exception("Chat failed for session '%s'", body.session_id)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Chat error: {exc}",
+            detail="Something went wrong while processing your message.",
         )
     return result
 
@@ -42,10 +43,8 @@ async def chat_stream_endpoint(
     from app.services.session_store import session_store
 
     if not session_store.exists(body.session_id):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Session '{body.session_id}' not found.",
-        )
+        exc = SessionNotFoundError(body.session_id)
+        raise HTTPException(status_code=exc.status_code, detail=exc.message)
     return StreamingResponse(
         chat_stream(
             session_id=body.session_id,

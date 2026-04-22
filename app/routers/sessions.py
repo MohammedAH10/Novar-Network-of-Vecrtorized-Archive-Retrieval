@@ -1,6 +1,7 @@
 import logging
 
 from app.models.schemas import SessionDeleteResponse
+from app.utils.errors import SessionNotFoundError
 from fastapi import APIRouter, HTTPException, status
 
 from app.services.session_store import session_store
@@ -17,10 +18,8 @@ async def delete_session(session_id: str) -> SessionDeleteResponse:
     """
     deleted = session_store.delete(session_id)
     if not deleted:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Session '{session_id}' not found.",
-        )
+        exc = SessionNotFoundError(session_id)
+        raise HTTPException(status_code=exc.status_code, detail=exc.message)
     return SessionDeleteResponse(
         session_id=session_id,
         message="Session deleted and memory freed.",
@@ -34,10 +33,8 @@ async def list_session_files(session_id: str) -> dict:
     """
     session = session_store.get(session_id)
     if not session:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Session '{session_id}' not found.",
-        )
+        exc = SessionNotFoundError(session_id)
+        raise HTTPException(status_code=exc.status_code, detail=exc.message)
     return {
         "session_id": session_id,
         "files": session.uploaded_files,
