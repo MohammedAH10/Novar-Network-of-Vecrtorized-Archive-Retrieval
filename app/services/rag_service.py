@@ -1,3 +1,4 @@
+import json
 import logging
 import uuid
 
@@ -8,7 +9,6 @@ from langchain_core.documents import Document
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_core.runnables import RunnablePassthrough
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 
 from app.models.schemas import ChatResponse, UploadResponse
@@ -18,10 +18,6 @@ from app.utils.parser import parse_document
 
 logger = logging.getLogger(__name__)
 
-
-# ------------------------------------------------------------------ #
-# Prompts
-# ------------------------------------------------------------------ #
 
 CONDENSE_QUESTION_PROMPT = ChatPromptTemplate.from_messages(
     [
@@ -53,14 +49,11 @@ ANSWER_PROMPT = ChatPromptTemplate.from_messages(
 )
 
 
-# ------------------------------------------------------------------ #
-# Helpers
-# ------------------------------------------------------------------ #
-
 def _build_embeddings(settings: Settings) -> GoogleGenerativeAIEmbeddings:
     return GoogleGenerativeAIEmbeddings(
         model=settings.gemini_embedding_model,
         google_api_key=settings.gemini_api_key,
+        task_type="retrieval_document",
     )
 
 
@@ -87,9 +80,14 @@ def _extract_source_names(docs: list[Document]) -> list[str]:
     return sources
 
 
+def _sse(event: str, data: str) -> str:
+    return f"event: {event}\ndata: {data}\n\n"
+
+
 # ------------------------------------------------------------------ #
 # Ingestion
 # ------------------------------------------------------------------ #
+
 
 async def ingest_document(
     filename: str,
@@ -97,17 +95,10 @@ async def ingest_document(
     settings: Settings,
     session_id: str | None = None,
 ) -> UploadResponse:
-    """
-    Parse → chunk → embed → store in an in-memory ChromaDB collection.
-    If session_id is provided, documents are appended to the existing session.
-    Otherwise a new session is created.
-    """
-    # Parse raw bytes into LangChain Documents
     raw_docs = parse_document(filename, content)
     if not raw_docs:
         raise ValueError(f"No extractable text found in '{filename}'.")
 
-    # Chunk
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=settings.chunk_size,
         chunk_overlap=settings.chunk_overlap,
@@ -118,14 +109,14 @@ async def ingest_document(
 
     embeddings = _build_embeddings(settings)
 
-    # Reuse or create session
     if session_id and session_store.exists(session_id):
         session = session_store.get(session_id)
         session.vectorstore.add_documents(chunks)
         session.uploaded_files.append(filename)
-        logger.info("Appended %d chunks to existing session %s", len(chunks), session_id)
+        logger.info(
+            "Appended %d chunks to existing session %s", len(chunks), session_id
+        )
     else:
-        # Each session gets its own ephemeral ChromaDB collection
         session_id = session_id or str(uuid.uuid4())
         collection_name = f"session_{session_id.replace('-', '_')}"
 
@@ -156,17 +147,15 @@ async def ingest_document(
 
 
 # ------------------------------------------------------------------ #
-# Chat
+# Chat (non-streaming)
 # ------------------------------------------------------------------ #
+
 
 async def chat(
     session_id: str,
     user_message: str,
     settings: Settings,
 ) -> ChatResponse:
-    """
-    Retrieve relevant chunks, run conversational RAG chain, update history.
-    """
     session = session_store.get(session_id)
     if not session:
         raise ValueError(f"Session '{session_id}' not found.")
@@ -177,24 +166,18 @@ async def chat(
         search_kwargs={"k": settings.retrieval_k},
     )
 
-    # Step 1: condense the question if there is chat history
     if session.chat_history:
         condense_chain = CONDENSE_QUESTION_PROMPT | llm | StrOutputParser()
         standalone_question = await condense_chain.ainvoke(
-            {
-                "chat_history": session.chat_history,
-                "question": user_message,
-            }
+            {"chat_history": session.chat_history, "question": user_message}
         )
     else:
         standalone_question = user_message
 
-    # Step 2: retrieve relevant docs
     relevant_docs = await retriever.ainvoke(standalone_question)
     context = _format_docs(relevant_docs)
     sources = _extract_source_names(relevant_docs)
 
-    # Step 3: generate answer
     answer_chain = ANSWER_PROMPT | llm | StrOutputParser()
     answer = await answer_chain.ainvoke(
         {
@@ -204,16 +187,69 @@ async def chat(
         }
     )
 
-    # Step 4: update history
     session.chat_history.extend(
-        [
-            HumanMessage(content=user_message),
-            AIMessage(content=answer),
-        ]
+        [HumanMessage(content=user_message), AIMessage(content=answer)]
     )
 
-    return ChatResponse(
-        answer=answer,
-        session_id=session_id,
-        sources=sources,
-    )
+    return ChatResponse(answer=answer, session_id=session_id, sources=sources)
+
+
+# ------------------------------------------------------------------ #
+# Chat (streaming)
+# ------------------------------------------------------------------ #
+
+
+async def chat_stream(
+    session_id: str,
+    user_message: str,
+    settings: Settings,
+):
+    session = session_store.get(session_id)
+    if not session:
+        yield _sse("error", f"Session '{session_id}' not found.")
+        return
+
+    try:
+        llm = _build_llm(settings)
+        retriever = session.vectorstore.as_retriever(
+            search_type="similarity",
+            search_kwargs={"k": settings.retrieval_k},
+        )
+
+        if session.chat_history:
+            condense_chain = CONDENSE_QUESTION_PROMPT | llm | StrOutputParser()
+            standalone_question = await condense_chain.ainvoke(
+                {"chat_history": session.chat_history, "question": user_message}
+            )
+        else:
+            standalone_question = user_message
+
+        relevant_docs = await retriever.ainvoke(standalone_question)
+        context = _format_docs(relevant_docs)
+        sources = _extract_source_names(relevant_docs)
+
+        yield _sse("sources", json.dumps(sources))
+
+        answer_chain = ANSWER_PROMPT | llm | StrOutputParser()
+        full_answer = ""
+
+        async for chunk in answer_chain.astream(
+            {
+                "context": context,
+                "chat_history": session.chat_history,
+                "question": user_message,
+            }
+        ):
+            if chunk:
+                full_answer += chunk
+                yield _sse("delta", chunk.replace("\n", "\\n"))
+
+        session.chat_history.extend(
+            [HumanMessage(content=user_message), AIMessage(content=full_answer)]
+        )
+
+        yield _sse("done", "{}")
+
+    except Exception as exc:
+        logger.exception("Streaming chat failed for session '%s'", session_id)
+        yield _sse("error", str(exc))
