@@ -1,10 +1,11 @@
-# Novar: Network of Vectorized Archive Retrieval — Backend
+# Novar: Network of Vectorized Archive Retrieval
 
-A minimal document Q&A backend powered by FastAPI, LangChain, ChromaDB (in-memory), and the Gemini API.
+A minimal document Q&A application with a FastAPI backend and React frontend, powered by LangChain, ChromaDB (in-memory), and the Gemini API.
 
 ## Stack
 
-- **FastAPI** — async HTTP server
+- **FastAPI** — async backend server
+- **React + Vite** — frontend UI
 - **LangChain** — RAG chain orchestration
 - **langchain-google-genai** — Gemini LLM + embeddings
 - **ChromaDB (EphemeralClient)** — in-memory vector store, one collection per session
@@ -14,6 +15,13 @@ A minimal document Q&A backend powered by FastAPI, LangChain, ChromaDB (in-memor
 
 ```
 novar/
+├── Novar-UI/
+│   ├── src/
+│   │   ├── components/         # Upload, chat, file list, and streaming UI pieces
+│   │   ├── hooks/              # Frontend session state management
+│   │   └── lib/                # API helpers for backend calls
+│   ├── package.json
+│   └── vite.config.js          # Dev server + proxy to FastAPI
 ├── app/
 │   ├── main.py                 # FastAPI app, CORS, router registration
 │   ├── models/
@@ -28,12 +36,14 @@ novar/
 │   └── utils/
 │       ├── config.py           # Pydantic settings (reads .env)
 │       └── parser.py           # PDF / EPUB / TXT / DOCX parsers
-├── .env.example
 ├── requirements.txt
+├── .env
 └── README.md
 ```
 
 ## Setup
+
+### Backend
 
 ```bash
 python -m venv venv
@@ -41,17 +51,47 @@ source venv/bin/activate      # Windows: venv\Scripts\activate
 
 pip install -r requirements.txt
 
-cp .env.example .env
-# Edit .env and set your GEMINI_API_KEY
+# Create .env and set your Gemini credentials
+```
+
+Example `.env`:
+
+```env
+GEMINI_API_KEY=your_api_key_here
+GEMINI_MODEL=gemini-2.5-flash
+GEMINI_EMBEDDING_MODEL=gemini-embedding-001
+CHUNK_SIZE=1000
+CHUNK_OVERLAP=150
+RETRIEVAL_K=5
+```
+
+### Frontend
+
+```bash
+cd Novar-UI
+npm install
 ```
 
 ## Run
+
+Start the backend from the project root:
 
 ```bash
 uvicorn app.main:app --reload --port 8000
 ```
 
-Swagger UI available at: http://localhost:8000/docs
+Start the frontend in a second terminal:
+
+```bash
+cd Novar-UI
+npm run dev
+```
+
+Frontend UI: http://localhost:5173
+
+Swagger UI: http://localhost:8000/docs
+
+The Vite dev server proxies `/upload`, `/chat`, `/sessions`, and `/health` to the FastAPI backend on `localhost:8000`.
 
 ## API Reference
 
@@ -92,6 +132,15 @@ Response:
 }
 ```
 
+### POST /chat/stream
+
+Streaming version of chat used by the frontend. Returns `text/event-stream` with these event types:
+
+- `sources` — emitted once with the retrieved source filenames
+- `delta` — incremental answer chunks
+- `done` — emitted when the response is complete
+- `error` — emitted if streaming fails
+
 ### DELETE /sessions/{session_id}
 
 Clears the session and frees all in-memory vector data.
@@ -107,3 +156,5 @@ Returns the list of filenames indexed in the session.
 - To support multiple documents in one conversation, call `/upload` multiple times
   with the same `session_id`.
 - Max file size: 50 MB per upload.
+- Supported upload formats: PDF, EPUB, TXT, DOCX.
+- If you restart the backend, you must upload documents again because sessions and vectors are in-memory only.

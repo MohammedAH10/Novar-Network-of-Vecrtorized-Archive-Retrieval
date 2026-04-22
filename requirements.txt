@@ -4,6 +4,9 @@ python-multipart==0.0.12
 pydantic==2.9.2
 pydantic-settings==2.5.2
 
+# Embeddings models
+sentence-transformers
+
 # LangChain core
 langchain==0.3.7
 langchain-google-genai==2.0.4
