@@ -1,3 +1,4 @@
+// ThinkingIndicator.jsx — unchanged
 import styles from "./ThinkingIndicator.module.css";
 
 export function ThinkingIndicator() {

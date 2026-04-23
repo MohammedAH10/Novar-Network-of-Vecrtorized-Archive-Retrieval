@@ -1,83 +1,77 @@
+/* FileList.module.css — minimal silver/metallic file rows */
 .list {
     list-style: none;
     display: flex;
     flex-direction: column;
+    gap: 2px;
 }
 
 .item {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     justify-content: space-between;
-    gap: 8px;
-    padding: 7px 0;
-    border-bottom: 1px solid var(--border-dim);
-    animation: fadeIn 200ms ease;
+    gap: 12px;
+    padding: 9px 6px;
+    border-radius: 12px;
+    transition: all 0.2s;
 }
 
-.item:first-child {
-    border-top: 1px solid var(--border-dim);
-}
-
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(4px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+.item:hover {
+    background: rgba(160, 165, 184, 0.05);
 }
 
 .name {
-    font-size: 11.5px;
-    color: var(--text);
+    font-size: 12px;
+    font-weight: 450;
+    color: var(--text-primary);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    min-width: 0;
     flex: 1;
+    font-family: var(--font-sans);
 }
 
 .meta {
     font-size: 10px;
-    white-space: nowrap;
-    flex-shrink: 0;
-    color: var(--text-faint);
+    font-family: var(--font-mono);
+    color: var(--text-tertiary);
+    background: rgba(0, 0, 0, 0.3);
+    padding: 2px 8px;
+    border-radius: 30px;
 }
 
-/* status variants */
+/* status */
 .indexing .meta {
-    color: var(--amber-dim);
-    animation: pulse 1.2s ease-in-out infinite;
+    color: var(--silver-glow);
+    animation: pulseSilver 1.2s infinite;
 }
 
-@keyframes pulse {
-    0%,
-    100% {
-        opacity: 1;
+@keyframes pulseSilver {
+    0% {
+        opacity: 0.5;
     }
     50% {
-        opacity: 0.4;
+        opacity: 1;
+        text-shadow: 0 0 2px silver;
+    }
+    100% {
+        opacity: 0.5;
     }
 }
 
 .ready .name::before {
-    content: "";
+    content: "●";
     display: inline-block;
-    width: 5px;
-    height: 5px;
-    border-radius: 50%;
-    background: var(--green);
-    margin-right: 7px;
+    font-size: 8px;
+    color: #86a69d;
+    margin-right: 8px;
     vertical-align: middle;
 }
 
 .error .name {
-    color: var(--text-muted);
+    color: var(--text-tertiary);
     text-decoration: line-through;
 }
-
 .error .meta {
-    color: var(--red);
+    color: #b68383;
 }
