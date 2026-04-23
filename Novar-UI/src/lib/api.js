@@ -1,4 +1,4 @@
-const BASE = ""; // proxied via Vite to http://localhost:8000
+const BASE = import.meta.env.VITE_API_BASE_URL || ""; // empty string keeps local Vite proxy working
 
 export async function uploadDocument(file, sessionId = null) {
   const form = new FormData();
