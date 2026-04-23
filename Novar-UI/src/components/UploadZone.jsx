@@ -1,3 +1,4 @@
+// UploadZone.jsx — keep same functionality
 import { useRef, useState, useCallback } from "react";
 import styles from "./UploadZone.module.css";
 
@@ -52,9 +53,9 @@ export function UploadZone({ onFiles, disabled }) {
         className={styles.hidden}
         tabIndex={-1}
       />
-      <span className={styles.icon}>+</span>
+      <span className={styles.icon}>⌘+</span>
       <span className={styles.label}>drop files or click to browse</span>
-      <span className={styles.hint}>pdf epub txt docx</span>
+      <span className={styles.hint}>pdf · epub · txt · docx</span>
     </div>
   );
 }

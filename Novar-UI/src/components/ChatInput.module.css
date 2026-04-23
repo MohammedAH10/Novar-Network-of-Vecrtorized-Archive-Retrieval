@@ -1,63 +1,69 @@
+/* ChatInput.module.css — futuristic silver/glass input */
 .wrapper {
-    display: flex;
-    align-items: flex-end;
-    border: 1px solid var(--border);
-    background: var(--bg-input);
-    transition: border-color var(--transition);
+  display: flex;
+  align-items: flex-end;
+  background: rgba(18, 20, 27, 0.7);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border-subtle);
+  border-radius: 28px;
+  transition: all var(--transition);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
 }
 
 .wrapper:focus-within:not(.disabled) {
-    border-color: var(--amber-dim);
+  border-color: var(--silver-glow);
+  box-shadow: 0 0 0 3px rgba(160, 165, 184, 0.2), 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .disabled {
-    opacity: 0.45;
+  opacity: 0.5;
 }
 
 .textarea {
-    flex: 1;
-    background: transparent;
-    border: none;
-    outline: none;
-    color: var(--text);
-    font-family: var(--font-mono);
-    font-size: 13px;
-    font-weight: 300;
-    line-height: 1.6;
-    padding: 12px 14px;
-    resize: none;
-    overflow-y: auto;
-    min-height: 44px;
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.5;
+  padding: 14px 18px;
+  resize: none;
+  min-height: 52px;
+  border-radius: 28px;
 }
 
 .textarea::placeholder {
-    color: var(--text-faint);
+  color: var(--text-tertiary);
+  font-weight: 300;
 }
 
 .send {
-    background: transparent;
-    border: none;
-    border-left: 1px solid var(--border);
-    color: var(--text-faint);
-    font-family: var(--font-mono);
-    font-size: 11px;
-    letter-spacing: 0.08em;
-    padding: 0 16px;
-    height: 44px;
-    cursor: pointer;
-    transition:
-        color var(--transition),
-        background var(--transition);
-    flex-shrink: 0;
-    align-self: flex-end;
+  background: transparent;
+  border: none;
+  border-left: 1px solid rgba(160, 165, 184, 0.2);
+  color: var(--silver-pale);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  padding: 0 22px;
+  height: 52px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-radius: 0 28px 28px 0;
+  text-transform: uppercase;
 }
 
 .send:hover:not(:disabled) {
-    color: var(--amber);
-    background: var(--amber-glow);
+  color: white;
+  background: rgba(160, 165, 184, 0.15);
+  letter-spacing: 0.12em;
 }
 
 .send:disabled {
-    cursor: not-allowed;
-    opacity: 0.3;
+  cursor: not-allowed;
+  opacity: 0.4;
 }

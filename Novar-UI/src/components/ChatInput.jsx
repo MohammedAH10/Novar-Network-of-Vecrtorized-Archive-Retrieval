@@ -1,3 +1,4 @@
+// ChatInput.jsx — unchanged logic, only visual via CSS
 import { useState, useRef } from "react";
 import styles from "./ChatInput.module.css";
 

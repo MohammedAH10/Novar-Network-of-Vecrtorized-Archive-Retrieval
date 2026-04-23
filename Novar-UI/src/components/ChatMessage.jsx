@@ -1,3 +1,4 @@
+// ChatMessage.jsx — minor prop usage remains identical
 import styles from "./ChatMessage.module.css";
 
 export function ChatMessage({ message }) {

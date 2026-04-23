@@ -1,3 +1,4 @@
+// App.jsx — updated branding & structure (silver/dark mode)
 import { useEffect, useRef } from "react";
 import { useSession } from "./hooks/useSession";
 import { UploadZone } from "./components/UploadZone";
@@ -32,22 +33,17 @@ export default function App() {
   const canChat = hasSession && readyFiles.length > 0 && !uploading;
 
   const chatPlaceholder = !hasSession
-    ? "upload a document first..."
+    ? "upload documents to activate neural archive"
     : uploading
-      ? "indexing..."
-      : "ask a question about your documents...";
+      ? "indexing vectors..."
+      : "ask a question — context-aware AI";
 
   return (
     <div className={styles.shell}>
-      {/* Sidebar */}
       <aside className={styles.sidebar}>
         <header className={styles.sidebarHeader}>
-          <h1 className={styles.wordmark}>
-            <span className={styles.wordmarkAccent}>nb</span>
-            <span className={styles.wordmarkDot}>.</span>
-            lite
-          </h1>
-          <p className={styles.tagline}>document intelligence</p>
+          <h1 className={styles.wordmark}>NOVAAR</h1>
+          <p className={styles.tagline}>vector archive retrieval</p>
         </header>
 
         <div className={styles.sidebarSection}>
@@ -56,7 +52,7 @@ export default function App() {
 
         {files.length > 0 && (
           <div className={styles.sidebarSection}>
-            <span className={styles.sectionLabel}>sources</span>
+            <span className={styles.sectionLabel}>knowledge sources</span>
             <FileList files={files} />
           </div>
         )}
@@ -64,32 +60,29 @@ export default function App() {
         {hasSession && (
           <div className={styles.sidebarFooter}>
             <div className={styles.sessionInfo}>
-              <span className={styles.sectionLabel}>session</span>
+              <span className={styles.sectionLabel}>session id</span>
               <span className={styles.sessionId} title={sessionId}>
-                {sessionId.slice(0, 8)}...
+                {sessionId.slice(0, 8)}...{sessionId.slice(-4)}
               </span>
             </div>
             <button className={styles.resetBtn} onClick={reset}>
-              clear session
+              ✦ clear session
             </button>
           </div>
         )}
       </aside>
 
-      {/* Main */}
       <main className={styles.main}>
         <div className={styles.chatArea}>
           {messages.length === 0 && (
             <div className={styles.emptyState}>
               <p className={styles.emptyTitle}>
                 {hasSession
-                  ? "session ready — ask anything"
-                  : "upload a document to begin"}
+                  ? "neural interface online — ask anything"
+                  : "upload documents to initialize vector memory"}
               </p>
               {!hasSession && (
-                <p className={styles.emptyHint}>
-                  supported formats: pdf, epub, txt, docx
-                </p>
+                <p className={styles.emptyHint}>PDF · EPUB · TXT · DOCX</p>
               )}
             </div>
           )}
@@ -105,13 +98,13 @@ export default function App() {
 
         {error && (
           <div className={styles.errorBanner} role="alert">
-            <span>{error}</span>
+            <span>⚠ {error}</span>
             <button
               className={styles.errorDismiss}
               onClick={clearError}
               aria-label="Dismiss"
             >
-              x
+              ✕
             </button>
           </div>
         )}

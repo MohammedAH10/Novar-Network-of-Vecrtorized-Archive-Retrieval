@@ -1,66 +1,102 @@
-/* ------------------------------------------------------------------ */
-/* Design tokens                                                        */
-/* ------------------------------------------------------------------ */
+/* ===== GLOBAL DESIGN SYSTEM — SILVER / DARK GREY / FUTURISTIC ===== */
 :root {
-  --bg:          #0d0d0d;
-  --bg-raised:   #141414;
-  --bg-input:    #111111;
-  --border:      #2a2a2a;
-  --border-dim:  #1e1e1e;
-
-  --text:        #e8e4dc;
-  --text-muted:  #6b6760;
-  --text-faint:  #3a3834;
-
-  --amber:       #e8a838;
-  --amber-dim:   #6b4e1a;
-  --amber-glow:  rgba(232, 168, 56, 0.08);
-
-  --red:         #c0392b;
-  --green:       #4a7c59;
-
-  --font-mono:   "JetBrains Mono", "Fira Code", monospace;
-  --font-serif:  "Instrument Serif", Georgia, serif;
-
-  --transition:  140ms ease;
+    --bg-deep: #0a0b0f;
+    --bg-surface: #121318;
+    --bg-elevated: #1a1c24;
+    --bg-glass: rgba(26, 28, 36, 0.68);
+    --border-subtle: #252a34;
+    --border-active: #3e4455;
+    --silver-glow: #a0a5b8;
+    --silver-muted: #6c7080;
+    --silver-pale: #e0e4f0;
+    --text-primary: #f0f2f8;
+    --text-secondary: #b6bbd0;
+    --text-tertiary: #6f7488;
+    --accent: #c0c7e0;
+    --accent-glow: rgba(160, 165, 184, 0.2);
+    --shadow-sm:
+        0 8px 20px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(160, 165, 184, 0.05);
+    --shadow-md:
+        0 12px 28px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(160, 165, 184, 0.08);
+    --transition: 0.2s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+    --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+    --font-mono: "JetBrains Mono", "Fira Code", monospace;
 }
 
-/* ------------------------------------------------------------------ */
-/* Reset                                                                */
-/* ------------------------------------------------------------------ */
-*, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
 }
 
-html, body, #root {
-  height: 100%;
+html,
+body,
+#root {
+    height: 100%;
+    background: var(--bg-deep);
 }
 
 body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: var(--font-mono);
-  font-size: 13px;
-  font-weight: 300;
-  line-height: 1.6;
-  -webkit-font-smoothing: antialiased;
-  overflow: hidden;
+    font-family: var(--font-sans);
+    font-weight: 400;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--text-primary);
+    background: radial-gradient(ellipse at 20% 30%, #12141c, #050608);
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
 }
 
-/* ------------------------------------------------------------------ */
-/* Scrollbar                                                            */
-/* ------------------------------------------------------------------ */
-::-webkit-scrollbar        { width: 4px; }
-::-webkit-scrollbar-track  { background: transparent; }
-::-webkit-scrollbar-thumb  { background: var(--border); border-radius: 2px; }
-::-webkit-scrollbar-thumb:hover { background: var(--text-faint); }
+/* futuristic scroll */
+::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+}
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+::-webkit-scrollbar-thumb {
+    background: var(--border-active);
+    border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: var(--silver-muted);
+}
 
-/* ------------------------------------------------------------------ */
-/* Selection                                                            */
-/* ------------------------------------------------------------------ */
 ::selection {
-  background: var(--amber-dim);
-  color: var(--text);
+    background: rgba(160, 165, 184, 0.3);
+    color: var(--text-primary);
+}
+
+/* animations */
+@keyframes fadeSlideUp {
+    0% {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes subtleGlow {
+    0% {
+        box-shadow: 0 0 0 0 rgba(160, 165, 184, 0);
+    }
+    50% {
+        box-shadow: 0 0 0 3px rgba(160, 165, 184, 0.2);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(160, 165, 184, 0);
+    }
+}
+
+@keyframes shimmer {
+    0% {
+        background-position: -200% 0;
+    }
+    100% {
+        background-position: 200% 0;
+    }
 }

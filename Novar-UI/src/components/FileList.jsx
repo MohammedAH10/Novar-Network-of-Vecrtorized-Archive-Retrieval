@@ -1,9 +1,10 @@
+// FileList.jsx — no logic changes, purely visual
 import styles from "./FileList.module.css";
 
 const STATUS_LABEL = {
   indexing: "indexing...",
   ready: null,
-  error: "error",
+  error: "failed",
 };
 
 export function FileList({ files }) {
@@ -18,7 +19,7 @@ export function FileList({ files }) {
           </span>
           <span className={styles.meta}>
             {f.status === "ready" && f.chunks != null
-              ? `${f.chunks} chunks`
+              ? `${f.chunks} vectors`
               : STATUS_LABEL[f.status]}
           </span>
         </li>
