@@ -7,6 +7,7 @@ import { ChatMessage } from "./components/ChatMessage";
 import { ChatInput } from "./components/ChatInput";
 import { ThinkingIndicator } from "./components/ThinkingIndicator";
 import styles from "./App.module.css";
+import { Link } from "react-router-dom";
 
 export default function App() {
   const {
@@ -42,6 +43,7 @@ export default function App() {
     <div className={styles.shell}>
       <aside className={styles.sidebar}>
         <header className={styles.sidebarHeader}>
+          <Link to="/" className={styles.homeLink}></Link>
           <h1 className={styles.wordmark}>NOVAAR</h1>
           <p className={styles.tagline}>vector archive retrieval</p>
         </header>
