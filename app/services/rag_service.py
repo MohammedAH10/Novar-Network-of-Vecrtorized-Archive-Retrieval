@@ -1,12 +1,17 @@
 import json
 import logging
+import os
 import uuid
 
+os.environ.setdefault("ANONYMIZED_TELEMETRY", "False")
+
 import chromadb
+from chromadb.config import Settings as ChromaClientSettings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_community.embeddings.fastembed import FastEmbedEmbeddings
 from langchain_core.documents import Document
+from langchain_core.embeddings import Embeddings
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
@@ -17,6 +22,7 @@ from app.services.session_store import SessionData, session_store
 from app.utils.config import Settings
 from app.utils.errors import (
     DocumentValidationError,
+    EmbeddingError,
     ResponseGenerationError,
     RetrievalError,
     SessionNotFoundError,
@@ -56,11 +62,11 @@ ANSWER_PROMPT = ChatPromptTemplate.from_messages(
 )
 
 
-def _build_embeddings(settings: Settings) -> HuggingFaceEmbeddings:
-    return HuggingFaceEmbeddings(
-        model_name=settings.embedding_model,
-        model_kwargs={"device": "cpu"},
-        encode_kwargs={"normalize_embeddings": True},
+def _build_embeddings(settings: Settings) -> Embeddings:
+    return FastEmbedEmbeddings(
+        model_name=settings.huggingface_embedding_model,
+        batch_size=settings.embedding_batch_size,
+        threads=settings.embedding_threads,
     )
 
 
@@ -91,6 +97,16 @@ def _sse(event: str, data: str) -> str:
     return f"event: {event}\ndata: {data}\n\n"
 
 
+def _add_documents_in_batches(
+    vectorstore: Chroma,
+    documents: list[Document],
+    batch_size: int,
+) -> None:
+    safe_batch_size = max(1, batch_size)
+    for start in range(0, len(documents), safe_batch_size):
+        vectorstore.add_documents(documents[start : start + safe_batch_size])
+
+
 # ------------------------------------------------------------------ #
 # Ingestion
 # ------------------------------------------------------------------ #
@@ -116,11 +132,30 @@ async def ingest_document(
     chunks = splitter.split_documents(raw_docs)
     logger.info("Split '%s' into %d chunks", filename, len(chunks))
 
-    embeddings = _build_embeddings(settings)
+    try:
+        embeddings = _build_embeddings(settings)
+    except Exception:
+        logger.exception(
+            "Failed to load embedding model '%s'",
+            settings.huggingface_embedding_model,
+        )
+        raise EmbeddingError()
 
     if session_id and session_store.exists(session_id):
         session = session_store.get(session_id)
-        session.vectorstore.add_documents(chunks)
+        try:
+            _add_documents_in_batches(
+                session.vectorstore,
+                chunks,
+                settings.index_batch_size,
+            )
+        except Exception:
+            logger.exception(
+                "Embedding/indexing failed while appending '%s' to session %s",
+                filename,
+                session_id,
+            )
+            raise EmbeddingError()
         session.uploaded_files.append(filename)
         logger.info(
             "Appended %d chunks to existing session %s", len(chunks), session_id
@@ -129,13 +164,26 @@ async def ingest_document(
         session_id = session_id or str(uuid.uuid4())
         collection_name = f"session_{session_id.replace('-', '_')}"
 
-        chroma_client = chromadb.EphemeralClient()
+        chroma_client = chromadb.EphemeralClient(
+            settings=ChromaClientSettings(anonymized_telemetry=False)
+        )
         vectorstore = Chroma(
             client=chroma_client,
             collection_name=collection_name,
             embedding_function=embeddings,
         )
-        vectorstore.add_documents(chunks)
+        try:
+            _add_documents_in_batches(
+                vectorstore,
+                chunks,
+                settings.index_batch_size,
+            )
+        except Exception:
+            logger.exception(
+                "Embedding/indexing failed while creating session for '%s'",
+                filename,
+            )
+            raise EmbeddingError()
 
         session_store.set(
             session_id,

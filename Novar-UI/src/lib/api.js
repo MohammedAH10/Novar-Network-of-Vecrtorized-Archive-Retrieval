@@ -5,7 +5,17 @@ export async function uploadDocument(file, sessionId = null) {
   form.append("file", file);
   if (sessionId) form.append("session_id", sessionId);
 
-  const res = await fetch(`${BASE}/upload`, { method: "POST", body: form });
+  let res;
+  try {
+    res = await fetch(`${BASE}/upload`, { method: "POST", body: form });
+  } catch (err) {
+    throw new Error(
+      err.message?.includes("NetworkError")
+        ? "Could not reach the backend while indexing. Check that FastAPI is still running on port 8000."
+        : (err.message ?? "Network error"),
+    );
+  }
+
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error(err.detail ?? "Upload failed");

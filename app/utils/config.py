@@ -6,12 +6,14 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     gemini_api_key: str
     gemini_model: str = "gemini-2.5-flash"
-    # gemini_embedding_model: str = "gemini-embedding-001"
-    embedding_model: str = "all-MiniLM-L6-v2"
+    huggingface_embedding_model: str = "BAAI/bge-small-en-v1.5"
+    embedding_batch_size: int = 64
+    embedding_threads: int | None = None
+    index_batch_size: int = 256
 
     # Chunking
-    chunk_size: int = 1000
-    chunk_overlap: int = 150
+    chunk_size: int = 1800
+    chunk_overlap: int = 200
 
     # Retrieval
     retrieval_k: int = 5

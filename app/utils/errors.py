@@ -18,6 +18,13 @@ class DocumentProcessingError(UserFacingError):
             status.HTTP_422_UNPROCESSABLE_ENTITY,
         )
 
+class EmbeddingError(UserFacingError):
+    def __init__(self) -> None:
+        super().__init__(
+            "We couldn't index that document with the Hugging Face embedding model. Please verify the model can be downloaded and try again.",
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+
 class SessionNotFoundError(UserFacingError):
     def __init__(self, session_id: str) -> None:
         super().__init__(
