@@ -6,6 +6,8 @@ pydantic-settings==2.5.2
 
 # Embeddings models
 sentence-transformers
+onnxruntime
+optimum-onnx
 
 # LangChain core
 langchain==0.3.7

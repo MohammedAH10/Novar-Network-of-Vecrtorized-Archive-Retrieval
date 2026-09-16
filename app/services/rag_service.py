@@ -59,7 +59,7 @@ ANSWER_PROMPT = ChatPromptTemplate.from_messages(
 def _build_embeddings(settings: Settings) -> HuggingFaceEmbeddings:
     return HuggingFaceEmbeddings(
         model_name=settings.embedding_model,
-        model_kwargs={"device": "cpu"},
+        model_kwargs={"device": "cpu", "backend": "onnx"},
         encode_kwargs={"normalize_embeddings": True},
     )
 
