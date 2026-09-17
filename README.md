@@ -7,7 +7,8 @@ A minimal document Q&A application with a FastAPI backend and React frontend, po
 - **FastAPI** — async backend server
 - **React + Vite** — frontend UI
 - **LangChain** — RAG chain orchestration
-- **langchain-google-genai** — Gemini LLM + embeddings
+- **langchain-google-genai** — Gemini LLM
+- **sentence-transformers + ONNX Runtime** — local `all-MiniLM-L6-v2` embeddings (no API key needed)
 - **ChromaDB (EphemeralClient)** — in-memory vector store, one collection per session
 - **pypdf / python-docx / ebooklib** — document parsing
 
