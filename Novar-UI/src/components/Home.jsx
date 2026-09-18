@@ -133,6 +133,7 @@ export default function Home() {
         event.preventDefault();
         document.getElementById("library-search")?.focus();
       }
+      if (event.key === "Escape") setMobileNavOpen(false);
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
@@ -178,6 +179,7 @@ export default function Home() {
             <button
               key={label}
               className={`rail-nav-item ${activeNav === label ? "rail-nav-item-active" : ""}`}
+              aria-current={activeNav === label ? "page" : undefined}
               onClick={() => {
                 setActiveNav(label);
                 setMobileNavOpen(false);
@@ -233,7 +235,7 @@ export default function Home() {
       <main className="main-canvas">
         <header className="topbar">
           <div className="topbar-left">
-            <button className="icon-button mobile-menu" aria-label="Open navigation" onClick={() => setMobileNavOpen(true)}>
+            <button className="icon-button mobile-menu" aria-label="Open navigation" aria-expanded={mobileNavOpen} onClick={() => setMobileNavOpen(true)}>
               <Menu size={19} />
             </button>
             <div className="breadcrumb"><span>Novar</span><ChevronDown size={13} /><strong>Workspace</strong></div>
