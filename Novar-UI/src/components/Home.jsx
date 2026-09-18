@@ -22,15 +22,13 @@ import {
   Sparkles,
   ThumbsDown,
   ThumbsUp,
+  Trash2,
   UploadCloud,
   X,
   Zap,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useNovarSession } from "../hooks/useNovarSession";
-
-let mockId = 0;
-const nextId = () => `mock-${mockId++}`;
 
 const starterPrompts = [
   "Summarize the documents in this library",
@@ -81,17 +79,20 @@ function formatAssistantText(content) {
 
 export default function Home() {
   const {
+    sessionId,
     files: documents,
+    messages,
     uploading,
+    thinking,
+    error,
     clearError,
     upload,
+    chat,
     reset,
   } = useNovarSession();
   const [activeNav, setActiveNav] = useState("Workspace");
   const [activeDocument, setActiveDocument] = useState(null);
   const [query, setQuery] = useState("");
-  const [messages, setMessages] = useState([]);
-  const [isThinking, setIsThinking] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef(null);
@@ -102,32 +103,22 @@ export default function Home() {
     void upload(fileList);
   };
 
-  const submitQuery = (value = query) => {
-    const trimmed = value.trim();
-    if (!trimmed || isThinking) return;
-
-    setMessages((current) => [...current, { id: nextId(), role: "user", content: trimmed }]);
-    setQuery("");
-    setIsThinking(true);
-
-    window.setTimeout(() => {
-      setMessages((current) => [
-        ...current,
-        {
-          id: nextId(),
-          role: "assistant",
-          content: "Your library is empty — upload documents first so I can answer against real sources.",
-          sources: [],
-        },
-      ]);
-      setIsThinking(false);
-    }, 900);
+  const handleClearSession = () => {
+    void reset();
+    toast.success("Session cleared");
   };
 
-  const handleCopy = () => {
-    const last = [...messages].reverse().find((m) => m.role === "assistant");
-    navigator.clipboard?.writeText(last?.content ?? "");
-    if (last) toast.success("Answer copied to clipboard");
+  const submitQuery = (value = query) => {
+    const trimmed = value.trim();
+    if (!trimmed || thinking || !canChat) return;
+    setQuery("");
+    void chat(trimmed);
+  };
+
+  const handleCopy = (content) => {
+    if (!content) return;
+    navigator.clipboard?.writeText(content);
+    toast.success("Answer copied to clipboard");
   };
 
   useEffect(() => {
@@ -143,7 +134,11 @@ export default function Home() {
 
   const totalChunks = documents.reduce((sum, d) => sum + (d.chunks || 0), 0);
   const totalBytes = documents.reduce((sum, d) => sum + (d.size || 0), 0);
-  const canChat = documents.some((d) => d.status === "Ready") && !uploading;
+  const readyFiles = documents.filter((d) => d.status === "Ready");
+  const canChat = Boolean(sessionId) && readyFiles.length > 0 && !uploading;
+  const chatPlaceholder = !canChat
+    ? "upload documents to activate vector memory"
+    : "Ask anything about your library...";
 
   return (
     <div className="app-shell">
@@ -236,6 +231,11 @@ export default function Home() {
           </div>
           <div className="topbar-actions">
             <div className="status-pill"><span className="status-dot" /> In memory <span className="status-divider" /> {totalChunks.toLocaleString()} chunks</div>
+            {sessionId ? (
+              <button className="icon-button" aria-label="Clear session" onClick={handleClearSession} title="Clear session">
+                <Trash2 size={16} />
+              </button>
+            ) : null}
             <button className="icon-button" aria-label="Notifications" onClick={() => toast("You are all caught up")}><Bell size={17} /></button>
             <button className="avatar-button" aria-label="Open profile menu">NV</button>
           </div>
@@ -333,11 +333,17 @@ export default function Home() {
                 {messages.length === 0 ? (
                   <div className="chat-empty-state">
                     <div className="empty-illustration"><div className="empty-ring ring-one" /><div className="empty-ring ring-two" /><Sparkles size={27} /></div>
-                    <h3>Start with a thoughtful question.</h3>
-                    <p>I’ll search across your indexed documents and bring back the useful parts, with sources.</p>
-                    <div className="prompt-stack">
-                      {starterPrompts.map((prompt) => <button key={prompt} className="prompt-chip" onClick={() => submitQuery(prompt)}><ArrowUpRight size={15} />{prompt}</button>)}
-                    </div>
+                    <h3>{canChat ? "Start with a thoughtful question." : "Upload a document to begin"}</h3>
+                    <p>
+                      {canChat
+                        ? "I’ll search across your indexed documents and bring back the useful parts, with sources."
+                        : "Your vector archive is empty — drop a PDF, EPUB, TXT, or DOCX in the library."}
+                    </p>
+                    {canChat ? (
+                      <div className="prompt-stack">
+                        {starterPrompts.map((prompt) => <button key={prompt} className="prompt-chip" onClick={() => submitQuery(prompt)}><ArrowUpRight size={15} />{prompt}</button>)}
+                      </div>
+                    ) : null}
                   </div>
                 ) : (
                   <div className="message-list">
@@ -345,23 +351,32 @@ export default function Home() {
                       <div key={message.id} className={`message ${message.role === "user" ? "message-user" : "message-assistant"}`}>
                         {message.role === "assistant" ? <div className="message-avatar"><Sparkles size={14} /></div> : null}
                         <div className="message-content">
-                          <div className="message-label">{message.role === "user" ? "You" : "Novar"}</div>
-                          <div className="message-bubble">{message.role === "assistant" ? formatAssistantText(message.content) : message.content}</div>
-                          {message.sources ? <div className="source-row"><span>Sources</span>{message.sources.map((source) => <button key={source} className="source-chip" onClick={() => toast(`Opening ${source}`)}><FileText size={12} />{source}</button>)}</div> : null}
-                          {message.role === "assistant" ? <div className="message-actions"><button onClick={handleCopy}><Copy size={13} /> Copy</button><button onClick={() => toast("Thanks for the feedback")}><ThumbsUp size={13} /></button><button onClick={() => toast("Thanks for the feedback")}><ThumbsDown size={13} /></button></div> : null}
+                          <div className="message-label">{message.role === "user" ? "You" : message.role === "error" ? "Error" : "Novar"}</div>
+                          <div className={`message-bubble ${message.role === "error" ? "message-error" : ""}`}>
+                            {message.role === "assistant" ? formatAssistantText(message.content) : message.content}
+                          </div>
+                          {message.sources?.length ? <div className="source-row"><span>Sources</span>{message.sources.map((source) => <button key={source} className="source-chip" onClick={() => toast(`Source: ${source}`)}><FileText size={12} />{source}</button>)}</div> : null}
+                          {message.role === "assistant" ? <div className="message-actions"><button onClick={() => handleCopy(message.content)}><Copy size={13} /> Copy</button><button onClick={() => toast("Thanks for the feedback")}><ThumbsUp size={13} /></button><button onClick={() => toast("Thanks for the feedback")}><ThumbsDown size={13} /></button></div> : null}
                         </div>
                       </div>
                     ))}
-                    {isThinking ? <div className="message message-assistant"><div className="message-avatar"><Sparkles size={14} /></div><div className="message-content"><div className="message-label">Novar</div><div className="message-bubble thinking-bubble"><span /><span /><span /></div></div></div> : null}
+                    {thinking ? <div className="message message-assistant"><div className="message-avatar"><Sparkles size={14} /></div><div className="message-content"><div className="message-label">Novar</div><div className="message-bubble thinking-bubble"><span /><span /><span /></div></div></div> : null}
                   </div>
                 )}
               </div>
 
+              {error && (
+                <div className="error-banner" role="alert">
+                  <span>⚠ {error}</span>
+                  <button style={{ marginLeft: "auto" }} className="composer-attach" aria-label="Dismiss" onClick={clearError}>✕</button>
+                </div>
+              )}
+
               <form className="chat-composer" onSubmit={(event) => { event.preventDefault(); submitQuery(); }}>
-                <button type="button" className="composer-attach" aria-label="Attach a file" onClick={() => fileInputRef.current?.click()}><Paperclip size={17} /></button>
-                <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Ask anything about your library..." aria-label="Ask anything about your library" />
+                <button type="button" className="composer-attach" aria-label="Attach a file" onClick={pickFiles}><Paperclip size={17} /></button>
+                <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={chatPlaceholder} aria-label="Ask anything about your library" />
                 <span className="composer-hint">Enter to send</span>
-                <button className="send-button" type="submit" aria-label="Send message" disabled={!query.trim() || isThinking}><Send size={16} /></button>
+                <button className="send-button" type="submit" aria-label="Send message" disabled={!query.trim() || thinking || !canChat}><Send size={16} /></button>
               </form>
               <div className="chat-footer"><span><Zap size={13} /> Answers are grounded in your library</span><span>Sources included automatically</span></div>
             </section>
@@ -369,8 +384,11 @@ export default function Home() {
 
           <section className="insight-strip">
             <div className="insight-icon"><Check size={15} /></div>
-            <div><strong>Your workspace is ready.</strong><span>{documents.length} documents indexed and available to chat with.</span></div>
-            <button onClick={() => toast("Workspace health looks good")}>View details <ArrowUpRight size={14} /></button>
+            <div>
+              <strong>{readyFiles.length > 0 ? "Your workspace is ready." : "Start by adding documents."}</strong>
+              <span>{readyFiles.length} document{readyFiles.length === 1 ? "" : "s"} indexed and available to chat with.</span>
+            </div>
+            <button onClick={() => toast(`${readyFiles.length} documents · ${totalChunks.toLocaleString()} chunks in vector memory`)}>View details <ArrowUpRight size={14} /></button>
           </section>
         </div>
       </main>
