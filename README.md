@@ -5,7 +5,7 @@ A minimal document Q&A application with a FastAPI backend and React frontend, po
 ## Stack
 
 - **FastAPI** — async backend server
-- **React + Vite** — frontend UI
+- **React + Vite** — frontend UI (landing page + chat interface with routing)
 - **LangChain** — RAG chain orchestration
 - **langchain-google-genai** — Gemini LLM
 - **sentence-transformers + ONNX Runtime** — local `all-MiniLM-L6-v2` embeddings (no API key needed)
@@ -18,7 +18,7 @@ A minimal document Q&A application with a FastAPI backend and React frontend, po
 novar/
 ├── Novar-UI/
 │   ├── src/
-│   │   ├── components/         # Upload, chat, file list, and streaming UI pieces
+│   │   ├── components/         # Landing, upload, chat, file list, and streaming UI pieces
 │   │   ├── hooks/              # Frontend session state management
 │   │   └── lib/                # API helpers for backend calls
 │   ├── package.json
@@ -29,13 +29,14 @@ novar/
 │   │   └── schemas.py          # Pydantic request/response models
 │   ├── routers/
 │   │   ├── upload.py           # POST /upload
-│   │   ├── chat.py             # POST /chat
+│   │   ├── chat.py             # POST /chat, POST /chat/stream
 │   │   └── sessions.py         # DELETE /sessions/{id}, GET /sessions/{id}/files
 │   ├── services/
 │   │   ├── rag_service.py      # Ingestion + conversational RAG chain
 │   │   └── session_store.py    # In-memory session registry
 │   └── utils/
 │       ├── config.py           # Pydantic settings (reads .env)
+│       ├── errors.py           # User-facing exceptions -> HTTP errors
 │       └── parser.py           # PDF / EPUB / TXT / DOCX parsers
 ├── requirements.txt
 ├── .env
@@ -60,7 +61,7 @@ Example `.env`:
 ```env
 GEMINI_API_KEY=your_api_key_here
 GEMINI_MODEL=gemini-2.5-flash
-GEMINI_EMBEDDING_MODEL=gemini-embedding-001
+EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
 CHUNK_SIZE=1000
 CHUNK_OVERLAP=150
 RETRIEVAL_K=5
@@ -88,7 +89,7 @@ cd Novar-UI
 npm run dev
 ```
 
-Frontend UI: http://localhost:5173
+Frontend UI: http://localhost:5173 (landing page; chat interface at http://localhost:5173/app)
 
 Swagger UI: http://localhost:8000/docs
 
