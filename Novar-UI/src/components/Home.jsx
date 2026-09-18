@@ -27,23 +27,15 @@ import {
   Zap,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useNovarSession } from "../hooks/useNovarSession";
 
 let mockId = 0;
 const nextId = () => `mock-${mockId++}`;
-
-const initialDocuments = [
-  { id: nextId(), name: "Product design principles.pdf", chunks: 42, size: 2516582, status: "Ready", icon: "pdf", tone: "rose" },
-  { id: nextId(), name: "Q3 research synthesis.docx", chunks: 37, size: 1887436, status: "Ready", icon: "doc", tone: "violet" },
-  { id: nextId(), name: "Brand voice & tone.md", chunks: 12, size: 43008, status: "Ready", icon: "note", tone: "amber" },
-];
 
 const starterPrompts = [
   "Summarize the documents in this library",
   "What are the main topics covered?",
 ];
-
-const assistantAnswer =
-  "The strongest recurring idea is to make complexity feel calm. Across the library, that shows up as three principles:\n\n**1. Start with the user’s next decision.** Put the clearest action and the right context in reach.\n\n**2. Reveal depth progressively.** Keep the first view simple, then offer detail when it is useful.\n\n**3. Let the interface feel considered.** Rhythm, language, and motion should make the product feel quietly confident.\n\nI found this pattern across 9 passages in the current library.";
 
 function FileIcon({ type, tone }) {
   return (
@@ -88,9 +80,15 @@ function formatAssistantText(content) {
 }
 
 export default function Home() {
-  const [documents, setDocuments] = useState(initialDocuments);
+  const {
+    files: documents,
+    uploading,
+    clearError,
+    upload,
+    reset,
+  } = useNovarSession();
   const [activeNav, setActiveNav] = useState("Workspace");
-  const [activeDocument, setActiveDocument] = useState(initialDocuments[0]?.id ?? null);
+  const [activeDocument, setActiveDocument] = useState(null);
   const [query, setQuery] = useState("");
   const [messages, setMessages] = useState([]);
   const [isThinking, setIsThinking] = useState(false);
@@ -98,23 +96,10 @@ export default function Home() {
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef(null);
 
-  const handleFiles = (files) => {
-    const incoming = Array.from(files);
-    if (!incoming.length) return;
-
-    const newId = nextId();
-    const added = { id: newId, name: incoming[0].name, chunks: 0, size: incoming[0].size || 0, status: "Indexing", icon: "pdf", tone: "rose" };
-
-    setDocuments((current) => [added, ...current]);
-    toast.success(`${incoming.length} ${incoming.length === 1 ? "document" : "documents"} added to the library`);
-
-    window.setTimeout(() => {
-      setDocuments((current) =>
-        current.map((doc) =>
-          doc.id === newId ? { ...doc, status: "Ready", chunks: 24 } : doc,
-        ),
-      );
-    }, 1800);
+  const pickFiles = () => fileInputRef.current?.click();
+  const handleFiles = (fileList) => {
+    if (!fileList?.length) return;
+    void upload(fileList);
   };
 
   const submitQuery = (value = query) => {
@@ -131,8 +116,8 @@ export default function Home() {
         {
           id: nextId(),
           role: "assistant",
-          content: assistantAnswer,
-          sources: ["Product design principles.pdf"],
+          content: "Your library is empty — upload documents first so I can answer against real sources.",
+          sources: [],
         },
       ]);
       setIsThinking(false);
@@ -141,8 +126,8 @@ export default function Home() {
 
   const handleCopy = () => {
     const last = [...messages].reverse().find((m) => m.role === "assistant");
-    navigator.clipboard?.writeText(last?.content ?? assistantAnswer);
-    toast.success("Answer copied to clipboard");
+    navigator.clipboard?.writeText(last?.content ?? "");
+    if (last) toast.success("Answer copied to clipboard");
   };
 
   useEffect(() => {
@@ -157,6 +142,8 @@ export default function Home() {
   }, []);
 
   const totalChunks = documents.reduce((sum, d) => sum + (d.chunks || 0), 0);
+  const totalBytes = documents.reduce((sum, d) => sum + (d.size || 0), 0);
+  const canChat = documents.some((d) => d.status === "Ready") && !uploading;
 
   return (
     <div className="app-shell">
@@ -263,7 +250,7 @@ export default function Home() {
             </div>
             <div className="intro-actions">
               <div className="shortcut-hint"><span className="keycap">⌘</span><span className="keycap">K</span><span>Search library</span></div>
-              <button className="primary-button" onClick={() => fileInputRef.current?.click()}><UploadCloud size={17} /> Add documents</button>
+              <button className="primary-button" onClick={pickFiles}><UploadCloud size={17} /> Add documents</button>
             </div>
           </section>
 
@@ -283,11 +270,11 @@ export default function Home() {
                 onDragOver={(event) => event.preventDefault()}
                 onDragLeave={() => setIsDragging(false)}
                 onDrop={(event) => { event.preventDefault(); setIsDragging(false); handleFiles(event.dataTransfer.files); }}
-                onClick={() => fileInputRef.current?.click()}
+                onClick={pickFiles}
               >
                 <div className="upload-orb"><UploadCloud size={20} /></div>
-                <div className="drop-copy"><strong>Drop files to add context</strong><span>PDF, EPUB, TXT, DOCX</span></div>
-                <button className="browse-button" onClick={(event) => { event.stopPropagation(); fileInputRef.current?.click(); }}>Browse</button>
+                <div className="drop-copy"><strong>{uploading ? "Indexing vectors…" : "Drop files to add context"}</strong><span>PDF, EPUB, TXT, DOCX</span></div>
+                <button className="browse-button" onClick={(event) => { event.stopPropagation(); pickFiles(); }}>Browse</button>
                 <input ref={fileInputRef} type="file" multiple accept=".pdf,.epub,.txt,.docx" className="visually-hidden" onChange={(event) => { if (event.target.files) handleFiles(event.target.files); event.target.value = ""; }} />
               </div>
 
@@ -297,30 +284,36 @@ export default function Home() {
               </div>
 
               <div className="document-list">
-                {documents.map((document) => (
-                  <button key={document.id} className={`document-row ${activeDocument === document.id ? "document-row-active" : ""}`} onClick={() => setActiveDocument(document.id)}>
-                    <FileIcon type={document.icon} tone={document.tone} />
-                    <span className="document-copy"><strong>{document.name}</strong>
-                      <span>
-                        {document.status === "Indexing"
-                          ? "Preparing chunks…"
-                          : `${formatBytes(document.size)} · ${document.chunks || 0} chunks`}
+                {documents.map((document) => {
+                  const ready = document.status === "Ready";
+                  const failed = document.status === "Error";
+                  return (
+                    <button key={document.id} className={`document-row ${activeDocument === document.id ? "document-row-active" : ""}`} onClick={() => setActiveDocument(document.id)}>
+                      <FileIcon type={document.icon} tone={document.tone} />
+                      <span className="document-copy"><strong>{document.name}</strong>
+                        <span>
+                          {document.status === "Indexing"
+                            ? "Preparing chunks…"
+                            : failed
+                              ? "Indexing failed"
+                              : `${formatBytes(document.size)} · ${document.chunks || 0} chunks`}
+                        </span>
                       </span>
-                    </span>
-                    <span className={`document-status ${document.status === "Ready" ? "document-status-ready" : "document-status-indexing"}`}>
-                      {document.status === "Ready" ? <CheckCircle2 size={14} /> : <Clock3 size={14} />}{document.status}
-                    </span>
-                    <MoreHorizontal size={16} className="document-more" />
-                  </button>
-                ))}
+                      <span className={`document-status ${ready ? "document-status-ready" : "document-status-indexing"}`}>
+                        {ready ? <CheckCircle2 size={14} /> : failed ? <X size={14} /> : <Clock3 size={14} />}{ready ? "Ready" : failed ? "Failed" : "Indexing"}
+                      </span>
+                      <MoreHorizontal size={16} className="document-more" />
+                    </button>
+                  );
+                })}
               </div>
 
               <div className="storage-meter">
                 <div className="storage-label">
                   <span>Workspace storage</span>
-                  <strong>{formatBytes(documents.reduce((s, d) => s + (d.size || 0), 0))} / 50 MB</strong>
+                  <strong>{formatBytes(totalBytes)} / 50 MB</strong>
                 </div>
-                <div className="meter-track"><span style={{ width: `${Math.min(100, (documents.reduce((s, d) => s + (d.size || 0), 0) / (50 * 1024 * 1024)) * 100)}%` }} /></div>
+                <div className="meter-track"><span style={{ width: `${Math.min(100, (totalBytes / (50 * 1024 * 1024)) * 100)}%` }} /></div>
               </div>
             </section>
 
