@@ -5,12 +5,13 @@ A minimal document Q&A application with a FastAPI backend and React frontend, po
 ## Stack
 
 - **FastAPI** — async backend server
-- **React + Vite** — frontend UI (landing page + chat interface with routing)
+- **React + Vite** — single-page workspace UI (library + streaming chat)
 - **LangChain** — RAG chain orchestration
 - **langchain-google-genai** — Gemini LLM
 - **sentence-transformers + ONNX Runtime** — local `all-MiniLM-L6-v2` embeddings (no API key needed)
 - **ChromaDB (EphemeralClient)** — in-memory vector store, one collection per session
 - **pypdf / python-docx / ebooklib** — document parsing
+- **lucide-react / sonner** — icons and toasts
 
 ## Project Structure
 
@@ -18,9 +19,11 @@ A minimal document Q&A application with a FastAPI backend and React frontend, po
 novar/
 ├── Novar-UI/
 │   ├── src/
-│   │   ├── components/         # Landing, upload, chat, file list, and streaming UI pieces
-│   │   ├── hooks/              # Frontend session state management
-│   │   └── lib/                # API helpers for backend calls
+│   │   ├── components/         # Workspace page (library + chat panels)
+│   │   ├── hooks/              # Session state, document indexing, SSE chat
+│   │   └── lib/                # FastAPI client (upload, sessions, streaming)
+│   ├── index.html              # Fonts + app shell
+│   ├── index.css               # LumenDesk-style design tokens and layout
 │   ├── package.json
 │   └── vite.config.js          # Dev server + proxy to FastAPI
 ├── app/
@@ -74,6 +77,12 @@ cd Novar-UI
 npm install
 ```
 
+For a non-local backend (e.g. a deployed API), create `Novar-UI/.env` with:
+
+```env
+VITE_API_BASE_URL=https://your-api.example.com
+```
+
 ## Run
 
 Start the backend from the project root:
@@ -89,11 +98,11 @@ cd Novar-UI
 npm run dev
 ```
 
-Frontend UI: http://localhost:5173 (landing page; chat interface at http://localhost:5173/app)
+Frontend UI: http://localhost:5173
 
 Swagger UI: http://localhost:8000/docs
 
-The Vite dev server proxies `/upload`, `/chat`, `/sessions`, and `/health` to the FastAPI backend on `localhost:8000`.
+The Vite dev server proxies `/upload`, `/chat`, `/sessions`, and `/health` to the FastAPI backend on `localhost:8000`. The session is stored in `localStorage`, so refreshing the page keeps your indexed library; use the trash icon in the top bar to clear it.
 
 ## API Reference
 
