@@ -93,9 +93,15 @@ export default function Home() {
   const [activeNav, setActiveNav] = useState("Workspace");
   const [activeDocument, setActiveDocument] = useState(null);
   const [query, setQuery] = useState("");
+  const [search, setSearch] = useState("");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef(null);
+  const messageListRef = useRef(null);
+
+  useEffect(() => {
+    messageListRef.current?.scrollTo({ top: messageListRef.current.scrollHeight, behavior: "smooth" });
+  }, [messages, thinking]);
 
   const pickFiles = () => fileInputRef.current?.click();
   const handleFiles = (fileList) => {
@@ -135,6 +141,9 @@ export default function Home() {
   const totalChunks = documents.reduce((sum, d) => sum + (d.chunks || 0), 0);
   const totalBytes = documents.reduce((sum, d) => sum + (d.size || 0), 0);
   const readyFiles = documents.filter((d) => d.status === "Ready");
+  const filteredDocuments = search
+    ? documents.filter((d) => d.name.toLowerCase().includes(search.toLowerCase()))
+    : documents;
   const canChat = Boolean(sessionId) && readyFiles.length > 0 && !uploading;
   const chatPlaceholder = !canChat
     ? "upload documents to activate vector memory"
@@ -279,12 +288,18 @@ export default function Home() {
               </div>
 
               <div className="library-tools">
-                <div className="search-field"><Search size={16} /><input id="library-search" placeholder="Search documents..." aria-label="Search documents" /></div>
+                <div className="search-field"><Search size={16} /><input id="library-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search documents..." aria-label="Search documents" /></div>
                 <button className="filter-button" onClick={() => toast("Filters are coming soon")}><span>All files</span><ChevronDown size={14} /></button>
               </div>
 
               <div className="document-list">
-                {documents.map((document) => {
+                {filteredDocuments.length === 0 ? (
+                  <div className="drop-copy" style={{ padding: "12px 8px" }}>
+                    <strong>{search ? "No matching documents" : "No documents yet"}</strong>
+                    <span>{search ? "Try a different search." : "Upload above to start building your library."}</span>
+                  </div>
+                ) : null}
+                {filteredDocuments.map((document) => {
                   const ready = document.status === "Ready";
                   const failed = document.status === "Error";
                   return (
@@ -346,7 +361,7 @@ export default function Home() {
                     ) : null}
                   </div>
                 ) : (
-                  <div className="message-list">
+                  <div className="message-list" ref={messageListRef}>
                     {messages.map((message) => (
                       <div key={message.id} className={`message ${message.role === "user" ? "message-user" : "message-assistant"}`}>
                         {message.role === "assistant" ? <div className="message-avatar"><Sparkles size={14} /></div> : null}
